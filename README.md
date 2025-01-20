@@ -1,26 +1,27 @@
-# fast dhash
+# Fast DHash
 
-A fast rust implementation of the perceptual hash ["dhash"](https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html).
+A fast rust implementation of the perceptual hash [*dhash*](https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html).
 
-The main difference with other rust implementations, and the reason it is called "fast",
-is that it doesn't use `grayscale` and `resize_exact` image methods, therefore running about ~50% faster
+The main difference with other rust implementations, and the reason it is called *fast*, is that it uses multi-threading and doesn't rely internally on the [*image*](https://docs.rs/image/latest/image/index.html) crate methods.
 
-## basic usage
+## Usage
 
 ```rust
 use fast_dhash::Dhash;
-
-use image;
+use image::open;
 use std::path::Path;
 
-fn main() {
-    let path = Path::new("../image.jpg");
-    let image = image::open(path);
+let path = Path::new("../image.jpg");
+let image = open(path);
 
-    if let Ok(image) = image {
-        let hash = Dhash::new(&image);
-        println!("hash: {}", hash);
-        // hash: d6a288ac6d5cce14
-    }
+if let Ok(image) = image {
+    let hash = Dhash::new(
+        image.as_bytes(),
+        image.width(),
+        image.height(),
+        image.color().channel_count(),
+    );
+    println!("hash: {}", hash);
+    // hash: d6a288ac6d5cce14
 }
 ```

@@ -1,220 +1,190 @@
-//! ## fast dhash
+//! # Fast DHash
 //!
-//! A fast rust implementation of the perceptual hash ["dhash"](https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html).
-//! 
-//! The main difference with other rust implementations, and the reason it is called "fast",
-//! is that it doesn't use `grayscale` and `resize_exact` image methods, therefore running about ~50% faster
-//! 
-//! ### basic usage
+//! A fast rust implementation of the perceptual hash [*dhash*](https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html).
+//!
+//! The main difference with other rust implementations, and the reason it is called *fast*, is that it uses multi-threading and doesn't rely internally on the [*image*](https://docs.rs/image/latest/image/index.html) crate methods.
+//!
+//! ### Usage
 //!
 //! ```
 //! use fast_dhash::Dhash;
-//!
-//! use image;
+//! use image::open;
 //! use std::path::Path;
 //!
-//! fn main() {
-//!     let path = Path::new("../image.jpg");
-//!     let image = image::open(path);
-//! 
-//!     if let Ok(image) = image {
-//!         let hash = Dhash::new(&image);
-//!         println!("hash: {}", hash);
-//!         // hash: d6a288ac6d5cce14
-//!     }
+//! let path = Path::new("../image.jpg");
+//! let image = open(path);
+//!
+//! if let Ok(image) = image {
+//!     let hash = Dhash::new(
+//!         image.as_bytes(),
+//!         image.width(),
+//!         image.height(),
+//!         image.color().channel_count(),
+//!     );
+//!     println!("hash: {}", hash);
+//!     // hash: d6a288ac6d5cce14
 //! }
 //! ```
-
-mod grid;
-
-use image::DynamicImage;
-
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::num::ParseIntError;
+use std::{fmt, num, str};
 
-/// ## Dhash
-/// 
-/// ### basic usage
-///
-/// ```
-/// use fast_dhash::Dhash;
-///
-/// use image;
-/// use std::path::Path;
-///
-/// fn main() {
-///     let path = Path::new("../image.jpg");
-///     let image = image::open(path);
-/// 
-///     if let Ok(image) = image {
-///         let hash = Dhash::new(&image);
-///         println!("hash: {}", hash);
-///         // hash: d6a288ac6d5cce14
-///     }
-/// }
-/// ```
-/// 
-/// ### comparaison
-/// 
-/// Dhash implements `PartialEq` instead of `Eq` to match
-/// cases where the compared hashes represent a variation
-/// of the same image.
-///
-/// to check the equality use
-/// `hash.hamming_distance(&other_hash) == 0`
-/// 
-/// #### example
-/// ```
-/// use fast_dhash::Dhash;
-/// 
-/// fn main() {
-///     let hash = Dhash::from_str("d6a288ac6d5cce14").unwrap();
-///     let similar = Dhash::from_str("d6a088ac6d5cce14").unwrap();
-///     let different = Dhash::from_str("a63ebccdfd5dbfff").unwrap();
-/// 
-///     assert!(hash == similar);
-///     assert!(hash.hamming_distance(&similar) == 1);
-/// 
-///     assert!(hash != different);
-///     assert!(hash.hamming_distance(&different) == 26);
-/// }
-/// 
-/// ```
-///
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Dhash {
     hash: u64,
 }
 
 impl Dhash {
-    /// ### dhash algorithm
-    ///
-    /// generates a new dhash from a `DynamicImage`
-    ///
-    /// #### paincs
-    /// panics with images bigger than 34,952 x 34,952 (~1.2 billion pixels)
-    ///
-    pub fn new(image: &DynamicImage) -> Self {
-        let grid = grid::from_image(image);
+    pub fn new(bytes: &[u8], width: u32, heigth: u32, channel_count: u8) -> Self {
+        let mut grid = [[0f64; 9]; 8];
 
-        let mut hash_bits: Vec<bool> = Vec::with_capacity(64);
+        let width = width as usize;
+        let heigth = heigth as usize;
+        let channel_count = channel_count as usize;
+
+        let cell_width = width / 9;
+        let cell_height = heigth / 8;
+
+        if channel_count >= 3 {
+            // NOTE: RGB(A) images implementation
+            std::thread::scope(|s| {
+                let mut handles = Vec::with_capacity(9);
+
+                for y in 0..8 {
+                    handles.push(s.spawn(move || {
+                        let mut row = [0f64; 9];
+
+                        for x in 0..9 {
+                            let from = x * cell_width;
+                            let to = from + cell_width;
+
+                            let mut rs = 0f64;
+                            let mut gs = 0f64;
+                            let mut bs = 0f64;
+
+                            for image_x in from..to {
+                                let from = y * cell_height;
+                                let to = from + cell_height;
+
+                                for image_y in from..to {
+                                    let i = (image_y * width + image_x) * channel_count;
+
+                                    unsafe {
+                                        rs += *bytes.get_unchecked(i) as f64;
+                                        gs += *bytes.get_unchecked(i + 1) as f64;
+                                        bs += *bytes.get_unchecked(i + 2) as f64;
+                                    }
+                                }
+                            }
+
+                            unsafe {
+                                *row.get_unchecked_mut(x) += rs * 0.299 + gs * 0.587 + bs * 0.114;
+                            }
+                        }
+
+                        (y, row)
+                    }));
+                }
+
+                for handle in handles {
+                    let (y, row) = handle.join().unwrap();
+                    grid[y] = row;
+                }
+            });
+        } else {
+            // NOTE: Grayscale images implementation
+            std::thread::scope(|s| {
+                let mut handles = Vec::with_capacity(9);
+
+                for y in 0..8 {
+                    handles.push(s.spawn(move || {
+                        let mut row = [0f64; 9];
+
+                        for x in 0..9 {
+                            let from = x * cell_width;
+                            let to = from + cell_width;
+
+                            let mut luma = 0f64;
+
+                            for image_x in from..to {
+                                let from = y * cell_height;
+                                let to = from + cell_height;
+
+                                for image_y in from..to {
+                                    let i = (image_y * width + image_x) * channel_count;
+
+                                    unsafe {
+                                        luma += *bytes.get_unchecked(i) as f64;
+                                    }
+                                }
+                            }
+
+                            unsafe {
+                                *row.get_unchecked_mut(x) += luma;
+                            }
+                        }
+
+                        (y, row)
+                    }));
+                }
+
+                for handle in handles {
+                    let (y, row) = handle.join().unwrap();
+                    grid[y] = row;
+                }
+            });
+        }
+
+        let mut bits = [false; 64];
 
         for y in 0..8 {
             for x in 0..8 {
-                hash_bits.push(grid[y][x] > grid[y][x + 1])
+                bits[y * 8 + x] = grid[y][x] > grid[y][x + 1];
             }
         }
 
         let mut hash: u64 = 0;
 
-        for i in 0..64 {
-            if hash_bits[i] {
-                hash += 1 << i
+        for (i, &bit) in bits.iter().enumerate() {
+            if bit {
+                hash += 1 << i;
             }
         }
 
         Self { hash }
     }
 
-    /// ### Dhash from `String`
-    ///
-    /// converts an hex `String` to `Dhash`
-    ///
-    /// #### example
-    /// ```
-    /// use fast_dhash::Dhash;
-    ///
-    /// fn main() {
-    ///     let string = "d6a288ac6d5cce14".to_string();
-    ///
-    ///     let hash = Dhash::from_string(&string).unwrap();
-    ///     let hash_u64 = hash.to_u64();
-    ///
-    ///     assert_eq!(hash_u64, 15466074344494255636u64);
-    /// }
-    /// ```
-    pub fn from_string(hash_hex: &String) -> Result<Self, ParseIntError> {
-        match u64::from_str_radix(&hash_hex, 16) {
-            Ok(hash) => Ok(Self { hash }),
-            Err(error) => Err(error),
-        }
-    }
-
-    /// ### Dhash from `str`
-    ///
-    /// converts an hex `str` to `Dhash`
-    ///
-    /// #### example
-    /// ```
-    /// use fast_dhash::Dhash;
-    ///
-    /// fn main() {
-    ///     let hash = Dhash::from_str("d6a288ac6d5cce14").unwrap();
-    ///     let hash_u64 = hash.to_u64();
-    ///
-    ///     assert_eq!(hash_u64, 15466074344494255636u64);
-    /// }
-    /// ```
-    pub fn from_str(hash_hex: &str) -> Result<Self, ParseIntError> {
-        match u64::from_str_radix(hash_hex, 16) {
-            Ok(hash) => Ok(Self { hash }),
-            Err(error) => Err(error),
-        }
-    }
-
-    /// ### Dhash from u64 hash
-    ///
-    /// parse a `u64`
-    /// 
     pub fn from_u64(hash: u64) -> Self {
         Self { hash }
     }
 
-    /// ### dhash hamming distance
-    ///
-    /// compares two hashes and returns a value between `0` and `64`
-    ///
-    /// `0` identical
-    ///
-    /// `1~10` variation
-    ///
-    /// `>10` different
-    ///
     pub fn hamming_distance(&self, other: &Self) -> u32 {
-        (&self.hash ^ other.hash).count_ones()
+        (self.hash ^ other.hash).count_ones()
     }
 
-    /// ### u64 hash
-    ///
-    /// returns the `u64` hash
-    ///
     pub fn to_u64(&self) -> u64 {
         self.hash
     }
 }
 
-// PartialEq
-//
-// Dhash implements `PartialEq` instead of `Eq` to match
-// cases where the compared hashes represent a variation
-// of the same image.
-//
-// to check the equality use
-// `hash.hamming_distance(&other_hash) == 0`
-//
 impl PartialEq for Dhash {
     fn eq(&self, other: &Self) -> bool {
         self.hamming_distance(other) < 11
     }
 }
 
-// Display
-//
-// Dhash is displayed as an hex string
-//
 impl fmt::Display for Dhash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:016x}", &self.hash)
+    }
+}
+
+impl str::FromStr for Dhash {
+    type Err = num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match u64::from_str_radix(s, 16) {
+            Ok(hash) => Ok(Self { hash }),
+            Err(error) => Err(error),
+        }
     }
 }
