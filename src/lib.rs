@@ -41,6 +41,15 @@ impl Dhash {
         let heigth = heigth as usize;
         let channel_count = channel_count as usize;
 
+        // NOTE: Very important, prevents possible segfault
+        if width * heigth * channel_count != bytes.len() {
+            panic!(
+                "Invalid image dimensions, expected {} got {}",
+                width * heigth * channel_count,
+                bytes.len()
+            );
+        }
+
         let cell_width = width / 9;
         let cell_height = heigth / 8;
 
@@ -115,7 +124,7 @@ fn grid_from_rgb(
     let mut grid = [[0f64; 9]; 8];
 
     thread::scope(|s| {
-        let mut handles = Vec::with_capacity(9);
+        let mut handles = Vec::with_capacity(8);
 
         for y in 0..8 {
             handles.push(s.spawn(move || {
@@ -170,7 +179,7 @@ fn grid_from_grayscale(
     let mut grid = [[0f64; 9]; 8];
 
     thread::scope(|s| {
-        let mut handles = Vec::with_capacity(9);
+        let mut handles = Vec::with_capacity(8);
 
         for y in 0..8 {
             handles.push(s.spawn(move || {

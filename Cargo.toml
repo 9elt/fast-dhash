@@ -1,6 +1,6 @@
 [package]
 name = "fast-dhash"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 description = "A fast rust implementation of the perceptual hash dhash"
 license = "MIT"
@@ -10,4 +10,4 @@ repository = "https://github.com/9elt/fast-dhash"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0.158", features = ["derive"] }
+serde = { version = "1.0.217", features = ["derive"] }
