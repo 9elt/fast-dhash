@@ -1,6 +1,6 @@
 [package]
 name = "fast-dhash"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
 description = "A fast rust implementation of the perceptual hash dhash"
 license = "MIT"
@@ -11,3 +11,6 @@ repository = "https://github.com/9elt/fast-dhash"
 
 [dependencies]
 serde = { version = "1.0.217", features = ["derive"] }
+
+[dev-dependencies]
+image = "0.25.5"

@@ -12,7 +12,7 @@ For forward and backward compatibility, the API does NOT directly rely on the [*
 use fast_dhash::Dhash;
 use image::ImageReader;
 
-let image = ImageReader::open("./image.jpg")
+let image = ImageReader::open(".test/radial.jpg")
     .expect("cannot read image")
     .decode()
     .expect("cannot decode image");
@@ -25,5 +25,5 @@ let hash = Dhash::new(
 );
 
 println!("hash: {}", hash);
-// hash: d6a288ac6d5cce14
+// hash: f0f0e8cccce8f0f0
 ```

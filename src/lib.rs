@@ -12,7 +12,7 @@
 //! use fast_dhash::Dhash;
 //! use image::ImageReader;
 //!
-//! let image = ImageReader::open("./image.jpg")
+//! let image = ImageReader::open(".test/radial.jpg")
 //!     .expect("cannot read image")
 //!     .decode()
 //!     .expect("cannot decode image");
@@ -25,7 +25,7 @@
 //! );
 //!
 //! println!("hash: {}", hash);
-//! // hash: d6a288ac6d5cce14
+//! // hash: f0f0e8cccce8f0f0
 //! ```
 use serde::{Deserialize, Serialize};
 use std::{fmt, num, str, thread};
@@ -36,22 +36,22 @@ pub struct Dhash {
 }
 
 impl Dhash {
-    pub fn new(bytes: &[u8], width: u32, heigth: u32, channel_count: u8) -> Self {
+    pub fn new(bytes: &[u8], width: u32, height: u32, channel_count: u8) -> Self {
         let width = width as usize;
-        let heigth = heigth as usize;
+        let height = height as usize;
         let channel_count = channel_count as usize;
 
         // NOTE: Very important, prevents possible segfault
-        if width * heigth * channel_count != bytes.len() {
+        if width * height * channel_count != bytes.len() {
             panic!(
                 "Invalid image dimensions, expected {} got {}",
-                width * heigth * channel_count,
+                width * height * channel_count,
                 bytes.len()
             );
         }
 
         let cell_width = width / 9;
-        let cell_height = heigth / 8;
+        let cell_height = height / 8;
 
         let grid = if channel_count >= 3 {
             grid_from_rgb(bytes, width, cell_width, cell_height, channel_count)
@@ -218,4 +218,61 @@ fn grid_from_grayscale(
     });
 
     grid
+}
+
+#[cfg(test)]
+mod test {
+    use super::Dhash;
+    use image::ImageReader;
+
+    #[test]
+    fn grad_ffff() {
+        let image = ImageReader::open(".test/grad.ffff.jpg")
+            .expect("cannot read image")
+            .decode()
+            .expect("cannot decode image");
+
+        let hash = Dhash::new(
+            image.as_bytes(),
+            image.width(),
+            image.height(),
+            image.color().channel_count(),
+        );
+
+        assert_eq!(hash.hash, 0xffffffffffffffff);
+    }
+
+    #[test]
+    fn grad_0000() {
+        let image = ImageReader::open(".test/grad.0000.jpg")
+            .expect("cannot read image")
+            .decode()
+            .expect("cannot decode image");
+
+        let hash = Dhash::new(
+            image.as_bytes(),
+            image.width(),
+            image.height(),
+            image.color().channel_count(),
+        );
+
+        assert_eq!(hash.hash, 0x0000000000000000);
+    }
+
+    #[test]
+    fn radial() {
+        let image = ImageReader::open(".test/radial.jpg")
+            .expect("cannot read image")
+            .decode()
+            .expect("cannot decode image");
+
+        let hash = Dhash::new(
+            image.as_bytes(),
+            image.width(),
+            image.height(),
+            image.color().channel_count(),
+        );
+
+        assert_eq!(hash.hash, 0xf0f0e8cccce8f0f0);
+    }
 }
