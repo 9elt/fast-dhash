@@ -6,7 +6,7 @@
 //!
 //! ## Usage
 //!
-//! For forward and backward compatibility, the API does NOT directly rely on the [*image*](https://docs.rs/image/latest/image/index.html) crate.
+//! For forward and backward compatibility, *fast dhash* does NOT directly rely on the [*image*](https://docs.rs/image/latest/image/index.html) crate, it is up to the user to provide the image bytes and dimensions.
 //!
 //! ```
 //! use fast_dhash::Dhash;
@@ -45,8 +45,8 @@ impl Dhash {
         if width * height * channel_count != bytes.len() {
             panic!(
                 "Invalid image dimensions, expected {} got {}",
-                width * height * channel_count,
-                bytes.len()
+                bytes.len(),
+                width * height * channel_count
             );
         }
 

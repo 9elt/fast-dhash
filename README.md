@@ -6,7 +6,7 @@ The main difference with other rust implementations, and the reason it is called
 
 ## Usage
 
-For forward and backward compatibility, the API does NOT directly rely on the [*image*](https://docs.rs/image/latest/image/index.html) crate.
+For forward and backward compatibility, *fast dhash* does NOT directly rely on the [*image*](https://docs.rs/image/latest/image/index.html) crate, it is up to the user to provide the image bytes and dimensions.
 
 ```rust
 use fast_dhash::Dhash;
