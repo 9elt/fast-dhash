@@ -10,21 +10,20 @@ For forward and backward compatibility, the API does NOT directly rely on the [*
 
 ```rust
 use fast_dhash::Dhash;
-use image::open;
-use std::path::Path;
+use image::ImageReader;
 
-let path = Path::new("../image.jpg");
-let image = open(path);
+let image = ImageReader::open("./image.jpg")
+    .expect("cannot read image")
+    .decode()
+    .expect("cannot decode image");
 
-if let Ok(image) = image {
-    let hash = Dhash::new(
-        image.as_bytes(),
-        image.width(),
-        image.height(),
-        image.color().channel_count(),
-    );
+let hash = Dhash::new(
+    image.as_bytes(),
+    image.width(),
+    image.height(),
+    image.color().channel_count(),
+);
 
-    println!("hash: {}", hash);
-    // hash: d6a288ac6d5cce14
-}
+println!("hash: {}", hash);
+// hash: d6a288ac6d5cce14
 ```
