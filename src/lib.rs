@@ -4,9 +4,9 @@
 //!
 //! The main difference with other rust implementations, and the reason it is called *fast*, is that it uses multithreading and does not resize nor converts the image, effectively cycling through its bytes only once.
 //!
-//! ### Usage
+//! ## Usage
 //!
-//! For forward and backward compatibility, it does NOT rely directly on the [*image*](https://docs.rs/image/latest/image/index.html) crate.
+//! For forward and backward compatibility, the API does NOT directly rely on the [*image*](https://docs.rs/image/latest/image/index.html) crate.
 //!
 //! ```
 //! use fast_dhash::Dhash;
