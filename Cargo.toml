@@ -1,6 +1,6 @@
 [package]
 name = "fast-dhash"
-version = "1.0.4"
+version = "1.1.0"
 edition = "2021"
 description = "A fast rust implementation of the perceptual hash dhash"
 license = "MIT"

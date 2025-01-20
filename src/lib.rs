@@ -32,7 +32,7 @@ use std::{fmt, num, str, thread};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Dhash {
-    hash: u64,
+    pub hash: u64,
 }
 
 impl Dhash {
@@ -78,16 +78,8 @@ impl Dhash {
         Self { hash }
     }
 
-    pub fn from_u64(hash: u64) -> Self {
-        Self { hash }
-    }
-
     pub fn hamming_distance(&self, other: &Self) -> u32 {
         (self.hash ^ other.hash).count_ones()
-    }
-
-    pub fn to_u64(&self) -> u64 {
-        self.hash
     }
 }
 
